@@ -1,8 +1,7 @@
-@import url('https://fonts.googleapis.com/css2?family=Fira+Code:wght@400;600&family=Merriweather:wght@400;700&display=swap');
+@import "tailwindcss";
 
-@tailwind base;
-@tailwind components;
-@tailwind utilities;
+/* You can keep your custom font imports below if you want */
+@import url('https://fonts.googleapis.com/css2?family=Fira+Code:wght@400;600&family=Merriweather:wght@400;700&display=swap');
 
 body {
   background-color: #F9F9F6;

@@ -1,271 +1,124 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { ArrowRight, Trash2, Plus, RefreshCcw, Layers, ArrowRightCircle } from 'lucide-react';
-import { clsx } from 'clsx';
-import { twMerge } from 'tailwind-merge';
-
-// --- Utility for cleaner classes ---
-function cn(...inputs) {
-  return twMerge(clsx(inputs));
-}
+import { Trash2, Plus, ArrowRightCircle, Link as LinkIcon } from 'lucide-react';
 
 // --- VISUAL COMPONENTS ---
-
-const Node = ({ value, label, isNew, isHighlight }) => {
-  return (
-    <motion.div
-      layout
-      initial={{ opacity: 0, scale: 0.8, y: -20 }}
-      animate={{ opacity: 1, scale: 1, y: 0 }}
-      exit={{ opacity: 0, scale: 0.5, transition: { duration: 0.2 } }}
-      className={cn(
-        "relative flex items-center justify-center w-20 h-20 border-2 rounded-lg shadow-sm bg-white font-mono text-xl transition-colors duration-300",
-        isHighlight ? "border-accent bg-accent/10" : "border-ink",
-        isNew && "ring-2 ring-highlight ring-offset-2"
-      )}
-    >
-      {value}
-      {label && (
-        <div className="absolute -left-16 top-1/2 -translate-y-1/2 text-xs font-serif text-pencil flex items-center justify-end w-14">
-          {label} <span className="ml-1 text-accent">→</span>
-        </div>
-      )}
-    </motion.div>
-  );
-};
-
-// --- DATA STRUCTURE LOGIC ---
-
-const StackVisualizer = ({ operations, setLog }) => {
-  const [stack, setStack] = useState([]);
-
-  // Expose methods to parent via useEffect or ref acts as a bridge, 
-  // but for simplicity, we pass controls down or lift state up.
-  // Here we listen to the 'operations' prop trigger.
-  
-  React.useEffect(() => {
-    if (!operations) return;
-    
-    if (operations.type === 'PUSH') {
-      const newNode = { id: Date.now(), value: operations.value };
-      setStack((prev) => [newNode, ...prev]);
-      setLog((prev) => [`Pushed ${operations.value} to Stack`, ...prev]);
-    }
-    
-    if (operations.type === 'POP') {
-      if (stack.length === 0) {
-        setLog((prev) => ["Error: Stack Underflow", ...prev]);
-        return;
-      }
-      const removed = stack[0];
-      setStack((prev) => prev.slice(1));
-      setLog((prev) => [`Popped ${removed.value} from Stack`, ...prev]);
-    }
-
-    if (operations.type === 'CLEAR') {
-      setStack([]);
-      setLog([]);
-    }
-  }, [operations]);
-
-  return (
-    <div className="flex flex-col items-center justify-end h-full w-full pb-10">
-      <div className="w-24 border-b-4 border-ink/20 absolute bottom-10" /> {/* Base of stack */}
-      <div className="flex flex-col-reverse gap-2 items-center min-h-[400px] justify-start p-4 bg-paper">
-        <AnimatePresence mode='popLayout'>
-          {stack.map((item, index) => (
-            <Node 
-              key={item.id} 
-              value={item.value} 
-              label={index === 0 ? "TOP" : null}
-              isNew={index === 0}
-            />
-          ))}
-        </AnimatePresence>
-        {stack.length === 0 && (
-          <div className="absolute top-1/2 text-pencil italic font-serif">Empty Stack</div>
-        )}
+const Node = ({ value, label, isNew, isLinkedList }) => (
+  <motion.div
+    layout
+    initial={{ opacity: 0, scale: 0.8, y: -20 }}
+    animate={{ opacity: 1, scale: 1, y: 0 }}
+    exit={{ opacity: 0, scale: 0.5 }}
+    className={`relative flex items-center justify-center border-2 border-slate-800 rounded-lg bg-white font-mono text-xl shadow-sm transition-colors
+      ${isLinkedList ? 'w-24 h-16' : 'w-20 h-20'}
+    `}
+  >
+    {isLinkedList ? (
+      <div className="flex w-full h-full">
+        <div className="flex-1 flex items-center justify-center border-r-2 border-slate-800">{value}</div>
+        <div className="w-8 flex items-center justify-center bg-slate-50 text-[10px] text-slate-400">NEXT</div>
       </div>
-    </div>
-  );
-};
-
-const QueueVisualizer = ({ operations, setLog }) => {
-  const [queue, setQueue] = useState([]);
-
-  React.useEffect(() => {
-    if (!operations) return;
-
-    if (operations.type === 'INSERT') {
-      const newNode = { id: Date.now(), value: operations.value };
-      setQueue((prev) => [...prev, newNode]);
-      setLog((prev) => [`Enqueued ${operations.value}`, ...prev]);
-    }
-
-    if (operations.type === 'DELETE') {
-      if (queue.length === 0) {
-        setLog((prev) => ["Error: Queue Underflow", ...prev]);
-        return;
-      }
-      const removed = queue[0];
-      setQueue((prev) => prev.slice(1));
-      setLog((prev) => [`Dequeued ${removed.value}`, ...prev]);
-    }
+    ) : value}
     
-    if (operations.type === 'CLEAR') {
-      setQueue([]);
-      setLog([]);
-    }
-  }, [operations]);
-
-  return (
-    <div className="flex flex-col items-center justify-center h-full w-full">
-      <div className="flex flex-row gap-4 items-center p-4 min-h-[120px]">
-        <AnimatePresence mode='popLayout'>
-          {queue.map((item, index) => (
-            <div key={item.id} className="relative">
-               {/* Pointers */}
-              {index === 0 && (
-                <motion.div layoutId="front-ptr" className="absolute -top-8 left-1/2 -translate-x-1/2 text-xs font-bold text-accent">
-                  FRONT
-                </motion.div>
-              )}
-              {index === queue.length - 1 && (
-                <motion.div layoutId="rear-ptr" className="absolute -bottom-8 left-1/2 -translate-x-1/2 text-xs font-bold text-ink">
-                  REAR
-                </motion.div>
-              )}
-              
-              <Node 
-                value={item.value} 
-                isNew={index === queue.length - 1}
-              />
-              
-              {/* Connector Line */}
-              {index < queue.length - 1 && (
-                 <div className="absolute top-1/2 -right-4 w-4 h-[2px] bg-pencil -z-10" />
-              )}
-            </div>
-          ))}
-        </AnimatePresence>
-        {queue.length === 0 && (
-          <div className="text-pencil italic font-serif">Empty Queue</div>
-        )}
+    {label && (
+      <div className="absolute -left-16 top-1/2 -translate-y-1/2 text-[10px] font-bold text-teal-600 flex items-center">
+        {label} <span className="ml-1">→</span>
       </div>
-    </div>
-  );
-};
+    )}
+  </motion.div>
+);
 
-// --- MAIN LAYOUT ---
-
+// --- MAIN APP ---
 export default function App() {
   const [activeTab, setActiveTab] = useState('stack');
+  const [data, setData] = useState([]);
   const [inputValue, setInputValue] = useState('');
-  const [currentOp, setCurrentOp] = useState(null);
-  const [logs, setLog] = useState([]);
+  const [logs, setLogs] = useState([]);
 
-  const handleOp = (type) => {
-    if ((type === 'PUSH' || type === 'INSERT') && !inputValue) return;
-    setCurrentOp({ type, value: inputValue });
-    if (type === 'PUSH' || type === 'INSERT') setInputValue('');
-    // Reset op trigger after small delay so React catches the change even if same op
-    setTimeout(() => setCurrentOp(null), 100);
+  const addNode = () => {
+    if (!inputValue) return;
+    const newNode = { id: Date.now(), value: inputValue };
+    
+    if (activeTab === 'stack') {
+      setData([newNode, ...data]);
+      setLogs(prev => [`Push: ${inputValue}`, ...prev]);
+    } else {
+      setData([...data, newNode]);
+      setLogs(prev => [activeTab === 'queue' ? `Enqueue: ${inputValue}` : `Append: ${inputValue}`, ...prev]);
+    }
+    setInputValue('');
+  };
+
+  const removeNode = () => {
+    if (data.length === 0) return;
+    const removed = data[0];
+    setData(data.slice(1));
+    setLogs(prev => [`Removed: ${removed.value}`, ...prev]);
   };
 
   return (
-    <div className="min-h-screen flex flex-col font-serif">
-      {/* HEADER */}
-      <header className="border-b border-pencil/30 bg-paper px-8 py-6 flex justify-between items-center">
+    <div className="min-h-screen flex flex-col bg-[#F9F9F6] text-slate-800 font-serif">
+      <header className="p-6 border-b border-slate-200 flex justify-between items-center bg-white">
         <div>
-          <h1 className="text-2xl font-bold text-ink">Data Structures Playground</h1>
-          <p className="text-sm text-pencil mt-1">Interactive Concept Visualization</p>
+          <h1 className="text-xl font-bold">DS Playground</h1>
+          <p className="text-xs text-slate-400">Interactive Textbook Diagrams</p>
         </div>
         <div className="flex gap-2">
-          <button 
-            onClick={() => { setActiveTab('stack'); setLog([]); }}
-            className={cn("px-4 py-2 rounded text-sm transition-all", activeTab === 'stack' ? "bg-ink text-white" : "text-ink hover:bg-black/5")}
-          >
-            Stack (LIFO)
-          </button>
-          <button 
-            onClick={() => { setActiveTab('queue'); setLog([]); }}
-            className={cn("px-4 py-2 rounded text-sm transition-all", activeTab === 'queue' ? "bg-ink text-white" : "text-ink hover:bg-black/5")}
-          >
-            Queue (FIFO)
-          </button>
+          {['stack', 'queue', 'linkedlist'].map(tab => (
+            <button 
+              key={tab}
+              onClick={() => { setActiveTab(tab); setData([]); setLogs([]); }}
+              className={`px-3 py-1 rounded text-sm capitalize ${activeTab === tab ? 'bg-slate-800 text-white' : 'hover:bg-slate-100'}`}
+            >
+              {tab}
+            </button>
+          ))}
         </div>
       </header>
 
-      {/* MAIN CONTENT */}
       <main className="flex-1 flex overflow-hidden">
-        
-        {/* CANVAS */}
-        <section className="flex-1 bg-[url('https://www.transparenttextures.com/patterns/graphy.png')] bg-fixed relative overflow-hidden">
-          {activeTab === 'stack' ? (
-            <StackVisualizer operations={currentOp} setLog={setLog} />
-          ) : (
-            <QueueVisualizer operations={currentOp} setLog={setLog} />
-          )}
+        <section className="flex-1 relative flex items-center justify-center p-10">
+          <div className={`flex gap-4 items-center ${activeTab === 'stack' ? 'flex-col-reverse' : 'flex-row'}`}>
+            <AnimatePresence mode="popLayout">
+              {data.map((item, i) => (
+                <React.Fragment key={item.id}>
+                  <Node 
+                    value={item.value} 
+                    isLinkedList={activeTab === 'linkedlist'}
+                    label={i === 0 ? (activeTab === 'stack' ? 'TOP' : 'HEAD') : null} 
+                  />
+                  {activeTab !== 'stack' && i < data.length - 1 && (
+                    <motion.div initial={{ scale: 0 }} animate={{ scale: 1 }} className="text-slate-300">──→</motion.div>
+                  )}
+                </React.Fragment>
+              ))}
+            </AnimatePresence>
+            {data.length === 0 && <p className="text-slate-300 italic">Structure is empty</p>}
+          </div>
         </section>
 
-        {/* SIDEBAR LOGS */}
-        <aside className="w-80 border-l border-pencil/30 bg-white p-6 overflow-y-auto hidden md:block">
-          <h3 className="text-sm font-bold uppercase tracking-wider text-pencil mb-4">Concept Log</h3>
-          <ul className="space-y-3">
-            {logs.map((log, i) => (
-              <motion.li 
-                initial={{ opacity: 0, x: 20 }}
-                animate={{ opacity: 1, x: 0 }}
-                key={i} 
-                className="text-sm font-mono text-ink border-l-2 border-accent pl-3 py-1"
-              >
-                {log}
-              </motion.li>
-            ))}
-          </ul>
+        <aside className="w-64 border-l border-slate-200 p-4 bg-white overflow-y-auto">
+          <h2 className="text-xs font-bold text-slate-400 uppercase mb-4">Activity Log</h2>
+          {logs.map((log, i) => (
+            <div key={i} className="text-xs font-mono mb-2 border-l-2 border-teal-500 pl-2">{log}</div>
+          ))}
         </aside>
       </main>
 
-      {/* CONTROL DECK */}
-      <footer className="border-t border-pencil/30 bg-white p-6 shadow-[0_-4px_20px_rgba(0,0,0,0.05)] z-10">
-        <div className="max-w-4xl mx-auto flex gap-4 items-center justify-center">
-          <div className="relative">
-            <input 
-              type="number" 
-              value={inputValue}
-              onChange={(e) => setInputValue(e.target.value)}
-              placeholder="Value"
-              className="w-32 px-4 py-3 border-2 border-pencil rounded-md font-mono focus:border-ink focus:outline-none"
-              onKeyDown={(e) => e.key === 'Enter' && handleOp(activeTab === 'stack' ? 'PUSH' : 'INSERT')}
-            />
-          </div>
-
-          {activeTab === 'stack' ? (
-            <>
-              <button onClick={() => handleOp('PUSH')} className="flex items-center gap-2 px-6 py-3 bg-ink text-white rounded-md hover:bg-slate-700 transition-colors font-bold">
-                <Plus size={18} /> Push
-              </button>
-              <button onClick={() => handleOp('POP')} className="flex items-center gap-2 px-6 py-3 border-2 border-ink text-ink rounded-md hover:bg-slate-100 transition-colors font-bold">
-                <ArrowRightCircle size={18} /> Pop
-              </button>
-            </>
-          ) : (
-            <>
-               <button onClick={() => handleOp('INSERT')} className="flex items-center gap-2 px-6 py-3 bg-ink text-white rounded-md hover:bg-slate-700 transition-colors font-bold">
-                <Plus size={18} /> Enqueue
-              </button>
-              <button onClick={() => handleOp('DELETE')} className="flex items-center gap-2 px-6 py-3 border-2 border-ink text-ink rounded-md hover:bg-slate-100 transition-colors font-bold">
-                <ArrowRightCircle size={18} /> Dequeue
-              </button>
-            </>
-          )}
-          
-          <div className="w-[1px] h-10 bg-pencil/30 mx-2" />
-          
-          <button onClick={() => handleOp('CLEAR')} className="flex items-center gap-2 px-4 py-3 text-red-600 hover:bg-red-50 rounded-md transition-colors text-sm font-bold">
-            <Trash2 size={16} /> Clear
-          </button>
-        </div>
+      <footer className="p-6 border-t border-slate-200 bg-white flex justify-center gap-4">
+        <input 
+          type="text" 
+          value={inputValue}
+          onChange={e => setInputValue(e.target.value)}
+          placeholder="Value"
+          className="border-2 border-slate-200 rounded px-3 py-2 w-24 focus:border-slate-800 outline-none font-mono"
+        />
+        <button onClick={addNode} className="bg-slate-800 text-white px-6 py-2 rounded flex items-center gap-2 hover:bg-slate-700">
+          <Plus size={16}/> {activeTab === 'stack' ? 'Push' : 'Add'}
+        </button>
+        <button onClick={removeNode} className="border-2 border-slate-800 px-6 py-2 rounded flex items-center gap-2 hover:bg-slate-50">
+          <ArrowRightCircle size={16}/> {activeTab === 'stack' ? 'Pop' : 'Remove'}
+        </button>
       </footer>
     </div>
   );
